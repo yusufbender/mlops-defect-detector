@@ -22,3 +22,6 @@ Thumbs.db
 # Project
 *.log
 .env
+
+# Model artifacts (downloaded at build time)
+models/

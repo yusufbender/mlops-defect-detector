@@ -1,0 +1,5 @@
+1. Get the application URL by running these commands:
+{{- if eq .Values.service.type "ClusterIP" }}
+  kubectl port-forward svc/{{ include "defect-api.fullname" . }} 8000:{{ .Values.service.port }}
+  curl http://localhost:8000/health
+{{- end }}

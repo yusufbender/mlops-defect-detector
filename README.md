@@ -1,3 +1,4 @@
+cat > README.md << 'EOF'
 # MLOps Defect Detector
 
 > Kubernetes-native MLOps platform for industrial defect detection.
@@ -21,25 +22,33 @@ deployment, observability, autoscaling, GitOps. This project covers the full
 stack, not just the model.
 
 ## 🏗️ Architecture
-┌────────────────────────────────────────────────┐
-│  Client (curl / future UI)                     │
-└──────────────┬─────────────────────────────────┘
-▼
-┌────────────────────────────────────────────────┐
-│  FastAPI Inference Service (2 replicas)        │
-│  ├─ POST /predict   — image → defect result    │
-│  ├─ GET  /health    — liveness                 │
-│  ├─ GET  /ready     — model loaded check       │
-│  └─ GET  /metrics   — Prometheus exposition    │
-└──────────────┬─────────────────────────────────┘
-▼
-┌────────────────────────────────────────────────┐
-│  YOLOv8n Model (loaded at startup)             │
-│  └─ CPU inference, ~800ms/image in cluster     │
-└────────────────────────────────────────────────┘
-Kubernetes (kind, 3 nodes) — local development
-Helm — application packaging
-Prometheus annotations — ready for scraping
+
+```mermaid
+flowchart TB
+    Client[Client<br/>curl / future UI] --> API
+
+    subgraph K8s[Kubernetes Cluster - kind, 3 nodes]
+        API[FastAPI Inference Service<br/>2 replicas, HPA 2-6]
+        Model[YOLOv8n Model<br/>loaded at startup]
+        API --> Model
+
+        subgraph Obs[Observability]
+            Prom[Prometheus]
+            Graf[Grafana]
+            Prom --> Graf
+        end
+
+        API -.scrape /metrics.-> Prom
+    end
+
+    style API fill:#4a90e2,color:#fff
+    style Model fill:#7b68ee,color:#fff
+    style Prom fill:#e85d24,color:#fff
+    style Graf fill:#f46800,color:#fff
+```
+
+**Stack:** Kubernetes (kind), Helm, FastAPI, YOLOv8 (ultralytics), Prometheus
++ Grafana, HPA (CPU-based autoscaling), metrics-server.
 
 ## ✅ Current Status
 
@@ -47,7 +56,7 @@ Prometheus annotations — ready for scraping
 |-------|-------------|--------|
 | 1 | Foundation (kind, FastAPI, Helm) | ✅ Complete |
 | 2 | Real YOLOv8 inference + production Dockerfile | ✅ Complete |
-| 3 | Prometheus + Grafana + HPA | 🚧 Next |
+| 3 | Prometheus + Grafana + HPA | 🚧 In Progress |
 | 4 | Azure DevOps CI/CD pipeline | ⏳ Planned |
 | 5 | ArgoCD GitOps | ⏳ Planned |
 | 6 | Terraform + Azure AKS | ⏳ Planned |
@@ -98,22 +107,16 @@ curl http://localhost:8000/metrics | grep inference_
 ```
 
 ## 📦 Repository Layout
-mlops-defect-detector/
-├── infra/                       # Infrastructure config
-│   └── kind-config.yaml         # 3-node local cluster
-├── k8s/
-│   └── defect-api/              # Helm chart
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       └── templates/
-├── services/
-│   └── inference-api/           # FastAPI service
-│       ├── main.py              # API + lifespan + metrics
-│       ├── model.py             # DefectDetector wrapper
-│       ├── requirements.txt
-│       ├── Dockerfile           # Multi-stage, non-root
-│       └── .dockerignore
-└── models/                      # Model artifacts (gitignored)
+
+| Path | Purpose |
+|------|---------|
+| `infra/kind-config.yaml` | 3-node local Kubernetes cluster definition |
+| `infra/kube-prometheus-values.yaml` | Monitoring stack customization |
+| `k8s/defect-api/` | Helm chart (Deployment, Service, HPA, ServiceAccount) |
+| `services/inference-api/main.py` | FastAPI app — endpoints, lifespan, metrics |
+| `services/inference-api/model.py` | `DefectDetector` wrapper around YOLOv8 |
+| `services/inference-api/Dockerfile` | CPU-only PyTorch, model baked in, non-root |
+| `models/` | Model artifacts (gitignored, downloaded at build time) |
 
 ## 🔧 Engineering Decisions
 
@@ -160,7 +163,8 @@ Available at `/metrics`:
 | `defects_detected_total` | Counter | Defect counts by type |
 | `model_load_duration_seconds` | Gauge | Time to load model at startup |
 
-Pods are annotated for Prometheus scraping:
+Pods are annotated for Prometheus scraping (no ServiceMonitor needed):
+
 ```yaml
 prometheus.io/scrape: "true"
 prometheus.io/port: "8000"
@@ -181,3 +185,4 @@ MIT — see [LICENSE](LICENSE).
 
 _Built by [Yusuf Bender](https://github.com/yusufbender) — open to feedback,
 contributions, and DevOps/MLOps opportunities in Türkiye and remote._
+EOF

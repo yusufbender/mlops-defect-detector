@@ -1,4 +1,3 @@
-cat > README.md << 'EOF'
 # MLOps Defect Detector
 
 > Kubernetes-native MLOps platform for industrial defect detection.
